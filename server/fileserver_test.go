@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/spf13/viper"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestFileServerHandlers(t *testing.T) {
-	testPath := "/up.txt"
+	testPath := "/david.txt"
 	//upFilePath := filepath.Join(path.GetDefaultWorkDirPath(), testPath)
 	//downFilePath := filepath.Join(path.GetDefaultWorkDirPath(),testPath)
 	//InitFolders()
@@ -67,6 +68,10 @@ func TestFileServerHandlers(t *testing.T) {
 	}
 	defer file.Close()
 	router := mux.NewRouter()
+	err = InitFsEncryption()
+	if err != nil {
+		fmt.Printf("error creating encryption key for : %v",  err)
+	}
 	router = InitRouters(router)
 	router.Use(AuthenticationMiddleware)
 	for _, testCase := range testCases {
@@ -87,10 +92,21 @@ func TestFileServerHandlers(t *testing.T) {
 				testCaseErr = fmt.Errorf("error creating http request for test case [ %s ]: %v", testCase.name, err)
 				t.FailNow()
 			}
-			password := "admin"
-			username := "admin"
+
+			password, err := Encrypt(DefAdminPass)
+			if err != nil {
+				testCaseErr = fmt.Errorf("error creating password encryption for test case [ %s ]: %v", testCase.name, err)
+				t.FailNow()
+			}
+			username , err := Encrypt(DefAdminUser)
+			if err != nil {
+				testCaseErr = fmt.Errorf("error creating username encryption for test case [ %s ]: %v", testCase.name, err)
+				t.FailNow()
+			}
+			viper.Set("admin-user", username)
+			viper.Set("admin-password", password)
 			if testCase.isAdmin {
-				r.SetBasicAuth(username, password)
+				r.SetBasicAuth(DefAdminUser, DefAdminPass)
 			}
 			router.Use(AuthenticationMiddleware)
 			w := httptest.NewRecorder()

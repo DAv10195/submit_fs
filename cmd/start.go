@@ -17,8 +17,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	//yaml2 "gopkg.in/yaml.v2"
-
 )
 
 func newStartCommand(ctx context.Context, args []string) *cobra.Command {
@@ -125,40 +123,33 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	startCmd.Flags().String(flagLogFile, viper.GetString(flagLogFile), "log to file, specify the file location")
 	startCmd.Flags().Int(flagFileServerPort, viper.GetInt(flagFileServerPort), "port the file server should listen on")
 	startCmd.Flags().String(flagFileServerPath, viper.GetString(flagFileServerPath), "directory to store the filese of the server, starting from home")
-	encryptPass, err = fileserver.Encrypt(viper.GetString(flagAdminPass))
-	if err != nil {
-		setupErr = err
-	}
-	encryptUser, err = fileserver.Encrypt(viper.GetString(flagAdminUser))
-	if err != nil {
-		setupErr = err
-	}
-	startCmd.Flags().String(flagAdminPass, encryptPass, "password for admin user")
-	startCmd.Flags().String(flagAdminUser, encryptUser, "username for admin user")
+	startCmd.Flags().String(flagAdminPass, viper.GetString(flagAdminPass), "password for admin user")
+	startCmd.Flags().String(flagAdminUser, viper.GetString(flagAdminUser), "username for admin user")
 	startCmd.Flags().String(flagAdminEncryptionKeyPath, viper.GetString(flagAdminEncryptionKeyPath), "path to encryption key")
 
-
-	//replace the config file with the decrypted password and username.
-	//c := creds{}
-	//err = viper.Unmarshal(&c)
-	//if err != nil {
-	//	log.Fatalf("unable to decode into struct, %v", err)
-	//}
-	//c.password = encryptPass
-	//c.userName = encryptUser
-	//d, err := yaml2.Marshal(&c)
-	//if err != nil {
-	//	log.Fatalf("error: %v", err)
-	//}
-
-	if err := viper.ReadInConfig(); err != nil && !os.IsNotExist(err) {
+	err = viper.ReadInConfig()
+	if !os.IsNotExist(err) {
+		encryptPass, err = fileserver.Encrypt(viper.GetString(flagAdminPass))
+		if err != nil {
+			setupErr = err
+		}
+		encryptUser, err = fileserver.Encrypt(viper.GetString(flagAdminUser))
+		if err != nil {
+			setupErr = err
+		}
+		viper.Set(flagAdminUser, encryptUser)
+		viper.Set(flagAdminPass, encryptPass)
+		err = viper.WriteConfig()
+		if err != nil {
+			setupErr = err
+		}
+	} else if err != nil {
 		setupErr = err
 	}
 
 	return startCmd
 }
 
-//type creds struct{
-//	userName string `yaml:"admin-user"`
-//	password string `yaml:"admin-password"`
-//}
+
+
+

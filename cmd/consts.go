@@ -5,7 +5,7 @@ const (
 	fileServer              = "file-server"
 	start					= "start"
 
-	defaultConfigFileName	= "submit_file_server.yml"
+	defaultConfigFileName	= "submit_file_server.yaml"
 	yaml					= "yaml"
 	info					= "info"
 	defMaxLogFileSize		= 10
