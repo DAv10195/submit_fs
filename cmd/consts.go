@@ -5,7 +5,7 @@ const (
 	fileServer              = "file-server"
 	start					= "start"
 
-	defaultConfigFileName	= "submit_file_server.yml"
+	defaultConfigFileName	= "submit_file_server.yaml"
 	yaml					= "yaml"
 	info					= "info"
 	defMaxLogFileSize		= 10
@@ -14,7 +14,6 @@ const (
 	deLogFileAndStdOut		= false
 
 	flagConfigFile        = "config-file"
-	flagFsDir             = "file-server-dir"
 	flagFileServerPort    = "file-server-port"
 	flagLogLevel          = "log-level"
 	flagLogFile           = "log-file"
@@ -22,8 +21,7 @@ const (
 	flagLogFileMaxSize    = "log-file-max-size"
 	flagLogFileMaxBackups = "log-file-max-backups"
 	flagLogFileMaxAge     = "log-file-max-age"
-	//flagFileServerFolder  = "submit-server-folder"
-	flagAdminConfFile     = "admin-conf-file"
 	flagFileServerPath    = "file-sever-path"
-
+	flagAdminPass         = "admin-password"
+	flagAdminUser         = "admin-user"
 )

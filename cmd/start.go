@@ -96,8 +96,21 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	viper.SetDefault(flagLogFileMaxBackups, defMaxLogFileBackups)
 	viper.SetDefault(flagLogLevel, info)
 	viper.SetDefault(flagFileServerPort, fileserver.DefPort)
-	viper.SetDefault(flagFileServerPath, filepath.Join(path.GetDefaultConfigFilePath()))
-
+	viper.SetDefault(flagFileServerPath, path.GetDefaultConfigFilePath())
+	err := fileserver.InitFsEncryption()
+	if err != nil {
+		logger.WithError(err).Fatal("failed to create key for encryption")
+	}
+	encryptPass, err := fileserver.Encrypt(fileserver.DefAdminPass)
+	if err != nil {
+		setupErr = err
+	}
+	viper.SetDefault(flagAdminPass, encryptPass)
+	encryptUser, err := fileserver.Encrypt(fileserver.DefAdminUser)
+	if err != nil {
+		setupErr = err
+	}
+	viper.SetDefault(flagAdminUser, encryptUser)
 
 	startCmd.Flags().AddFlagSet(configFlagSet)
 	startCmd.Flags().Int(flagLogFileMaxBackups, viper.GetInt(flagLogFileMaxBackups), "maximum number of log file rotations")
@@ -108,9 +121,32 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	startCmd.Flags().String(flagLogFile, viper.GetString(flagLogFile), "log to file, specify the file location")
 	startCmd.Flags().Int(flagFileServerPort, viper.GetInt(flagFileServerPort), "port the file server should listen on")
 	startCmd.Flags().String(flagFileServerPath, viper.GetString(flagFileServerPath), "directory to store the filese of the server, starting from home")
+	startCmd.Flags().String(flagAdminPass, viper.GetString(flagAdminPass), "password for admin user")
+	startCmd.Flags().String(flagAdminUser, viper.GetString(flagAdminUser), "username for admin user")
 
-	if err := viper.ReadInConfig(); err != nil && !os.IsNotExist(err) {
+	err = viper.ReadInConfig()
+	if !os.IsNotExist(err) {
+		encryptPass, err = fileserver.Encrypt(viper.GetString(flagAdminPass))
+		if err != nil {
+			setupErr = err
+		}
+		encryptUser, err = fileserver.Encrypt(viper.GetString(flagAdminUser))
+		if err != nil {
+			setupErr = err
+		}
+		viper.Set(flagAdminUser, encryptUser)
+		viper.Set(flagAdminPass, encryptPass)
+		err = viper.WriteConfig()
+		if err != nil {
+			setupErr = err
+		}
+	} else if err != nil {
 		setupErr = err
 	}
+
 	return startCmd
 }
+
+
+
+
