@@ -88,11 +88,6 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	if configFilePath == "" {
 		configFilePath = filepath.Join(path.GetDefaultConfigFilePath(), defaultConfigFileName)
 	}
-	err := fileserver.InitFsEncryption()
-	if err != nil {
-		logger.WithError(err).Fatal("failed to create key for encryption")
-
-	}
 	viper.SetConfigType(yaml)
 	viper.SetConfigFile(configFilePath)
 	viper.SetDefault(flagLogFileAndStdout, deLogFileAndStdOut)
@@ -102,7 +97,10 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	viper.SetDefault(flagLogLevel, info)
 	viper.SetDefault(flagFileServerPort, fileserver.DefPort)
 	viper.SetDefault(flagFileServerPath, path.GetDefaultConfigFilePath())
-	viper.SetDefault(flagAdminEncryptionKeyPath, path.GetDefaultConfigFilePath())
+	err := fileserver.InitFsEncryption()
+	if err != nil {
+		logger.WithError(err).Fatal("failed to create key for encryption")
+	}
 	encryptPass, err := fileserver.Encrypt(fileserver.DefAdminPass)
 	if err != nil {
 		setupErr = err
@@ -125,7 +123,6 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	startCmd.Flags().String(flagFileServerPath, viper.GetString(flagFileServerPath), "directory to store the filese of the server, starting from home")
 	startCmd.Flags().String(flagAdminPass, viper.GetString(flagAdminPass), "password for admin user")
 	startCmd.Flags().String(flagAdminUser, viper.GetString(flagAdminUser), "username for admin user")
-	startCmd.Flags().String(flagAdminEncryptionKeyPath, viper.GetString(flagAdminEncryptionKeyPath), "path to encryption key")
 
 	err = viper.ReadInConfig()
 	if !os.IsNotExist(err) {

@@ -9,7 +9,7 @@ import (
 var fsEncryption encryption.Encryption
 
 func InitFsEncryption() error {
-	path := filepath.Join(viper.GetString("encryption-key-path"),"submit_server.key")
+	path := filepath.Join(viper.GetString("file-sever-path"),"submit_server.key")
 	if err := encryption.GenerateAesKeyFile(path); err != nil {
 		return err
 	}

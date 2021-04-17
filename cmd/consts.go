@@ -24,5 +24,4 @@ const (
 	flagFileServerPath    = "file-sever-path"
 	flagAdminPass         = "admin-password"
 	flagAdminUser         = "admin-user"
-	flagAdminEncryptionKeyPath      = "encryption-key-path"
 )
