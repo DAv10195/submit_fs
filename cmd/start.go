@@ -3,9 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/DAv10195/submit_fs/path"
+	"github.com/DAv10195/submit_fs/server"
 	"github.com/gorilla/mux"
-	"github.com/nikitakogan1/submit-file-server/path"
-	fileserver "github.com/nikitakogan1/submit-file-server/server"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -56,17 +56,14 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 			} else {
 				logger.Debug("log file undefined")
 			}
-
-			cfg := &fileserver.Config{}
-			cfg.Port = viper.GetInt(flagFileServerPort)
 			baseRouter := mux.NewRouter()
-			baseRouter.Use(fileserver.AuthenticationMiddleware)
-			router := fileserver.InitRouters(baseRouter)
-			fileserver.InitFolders()
-			fs := fileserver.NewFileServer(router)
+			baseRouter.Use(server.AuthenticationMiddleware)
+			router := server.InitRouters(baseRouter)
+			server.InitFolders()
+			fs := server.NewFileServer(router)
 			go func() {
 				if err := fs.ListenAndServe(); err != http.ErrServerClosed {
-					logger.WithError(err).Fatal("submit server crashed")
+					logger.WithError(err).Fatal("submit fs crashed")
 				}
 			}()
 			logger.Info("server is running")
@@ -80,8 +77,14 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 			return nil
 		},
 	}
+
+	err := server.InitFsEncryption()
+	if err != nil {
+		logger.WithError(err).Fatal("failed to create key for encryption")
+	}
+
 	configFlagSet := pflag.NewFlagSet(fileServer, pflag.ContinueOnError)
-	_ = configFlagSet.StringP(flagConfigFile, "c", "", "path to submit server config file")
+	_ = configFlagSet.StringP(flagConfigFile, "c", "", "path to submit fs config file")
 	configFlagSet.SetOutput(ioutil.Discard)
 	_ = configFlagSet.Parse(args[1:])
 	configFilePath, _ := configFlagSet.GetString(flagConfigFile)
@@ -95,22 +98,8 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	viper.SetDefault(flagLogFileMaxAge, defMaxLogFileAge)
 	viper.SetDefault(flagLogFileMaxBackups, defMaxLogFileBackups)
 	viper.SetDefault(flagLogLevel, info)
-	viper.SetDefault(flagFileServerPort, fileserver.DefPort)
-	viper.SetDefault(flagFileServerPath, path.GetDefaultConfigFilePath())
-	err := fileserver.InitFsEncryption()
-	if err != nil {
-		logger.WithError(err).Fatal("failed to create key for encryption")
-	}
-	encryptPass, err := fileserver.Encrypt(fileserver.DefAdminPass)
-	if err != nil {
-		setupErr = err
-	}
-	viper.SetDefault(flagAdminPass, encryptPass)
-	encryptUser, err := fileserver.Encrypt(fileserver.DefAdminUser)
-	if err != nil {
-		setupErr = err
-	}
-	viper.SetDefault(flagAdminUser, encryptUser)
+	viper.SetDefault(flagFileServerPort, server.DefPort)
+	viper.SetDefault(flagFileServerPath, path.GetDefaultWorkDirPath())
 
 	startCmd.Flags().AddFlagSet(configFlagSet)
 	startCmd.Flags().Int(flagLogFileMaxBackups, viper.GetInt(flagLogFileMaxBackups), "maximum number of log file rotations")
@@ -120,21 +109,16 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	startCmd.Flags().String(flagLogLevel, viper.GetString(flagLogLevel), "logging level [panic, fatal, error, warn, info, debug]")
 	startCmd.Flags().String(flagLogFile, viper.GetString(flagLogFile), "log to file, specify the file location")
 	startCmd.Flags().Int(flagFileServerPort, viper.GetInt(flagFileServerPort), "port the file server should listen on")
-	startCmd.Flags().String(flagFileServerPath, viper.GetString(flagFileServerPath), "directory to store the filese of the server, starting from home")
-	startCmd.Flags().String(flagAdminPass, viper.GetString(flagAdminPass), "password for admin user")
-	startCmd.Flags().String(flagAdminUser, viper.GetString(flagAdminUser), "username for admin user")
+	startCmd.Flags().String(flagFileServerPath, viper.GetString(flagFileServerPath), "directory to store the files of the server, starting from home")
+	startCmd.Flags().String(flagAdminPass, viper.GetString(flagAdminPass), "password")
+	startCmd.Flags().String(flagAdminUser, viper.GetString(flagAdminUser), "username")
 
 	err = viper.ReadInConfig()
 	if !os.IsNotExist(err) {
-		encryptPass, err = fileserver.Encrypt(viper.GetString(flagAdminPass))
+		encryptPass, err := server.Encrypt(viper.GetString(flagAdminPass))
 		if err != nil {
 			setupErr = err
 		}
-		encryptUser, err = fileserver.Encrypt(viper.GetString(flagAdminUser))
-		if err != nil {
-			setupErr = err
-		}
-		viper.Set(flagAdminUser, encryptUser)
 		viper.Set(flagAdminPass, encryptPass)
 		err = viper.WriteConfig()
 		if err != nil {

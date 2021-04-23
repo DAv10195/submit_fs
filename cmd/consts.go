@@ -21,7 +21,7 @@ const (
 	flagLogFileMaxSize    = "log-file-max-size"
 	flagLogFileMaxBackups = "log-file-max-backups"
 	flagLogFileMaxAge     = "log-file-max-age"
-	flagFileServerPath    = "file-sever-path"
-	flagAdminPass         = "admin-password"
-	flagAdminUser         = "admin-user"
+	flagFileServerPath    = "file-server-path"
+	flagAdminPass         = "password"
+	flagAdminUser         = "user"
 )

@@ -1,4 +1,4 @@
-package fileserver
+package server
 
 import (
 	"bytes"
@@ -17,9 +17,6 @@ import (
 
 func TestFileServerHandlers(t *testing.T) {
 	testPath := "/david.txt"
-	//upFilePath := filepath.Join(path.GetDefaultWorkDirPath(), testPath)
-	//downFilePath := filepath.Join(path.GetDefaultWorkDirPath(),testPath)
-	//InitFolders()
 	testCases := []struct{
 		name	string
 		method	string
@@ -57,18 +54,23 @@ func TestFileServerHandlers(t *testing.T) {
 		},
 	}
 	body := &bytes.Buffer{}
-	err := ioutil.WriteFile("david.txt", []byte("david"), 0755)
+	tmpDir := os.TempDir()
+	davidPath := filepath.Join(tmpDir, "david.txt")
+	err := ioutil.WriteFile(davidPath, []byte("david"), 0755)
 	if err != nil {
 		fmt.Printf("Unable to write file: %v", err)
 	}
-	file, err := os.Open("david.txt")
+	defer os.Remove(davidPath)
+	file, err := os.Open(davidPath)
 	if err != nil {
 		fmt.Printf("error creating file to upload : %v",  err)
 		t.FailNow()
 	}
 	defer file.Close()
 	router := mux.NewRouter()
+	viper.Set("file-server-path", tmpDir)
 	err = InitFsEncryption()
+	defer os.Remove(filepath.Join(tmpDir, "submit_file_server.key"))
 	if err != nil {
 		fmt.Printf("error creating encryption key for : %v",  err)
 	}
@@ -92,21 +94,15 @@ func TestFileServerHandlers(t *testing.T) {
 				testCaseErr = fmt.Errorf("error creating http request for test case [ %s ]: %v", testCase.name, err)
 				t.FailNow()
 			}
-
-			password, err := Encrypt(DefAdminPass)
+			password, err := fsEncryption.Encrypt(DefPass)
 			if err != nil {
 				testCaseErr = fmt.Errorf("error creating password encryption for test case [ %s ]: %v", testCase.name, err)
 				t.FailNow()
 			}
-			username , err := Encrypt(DefAdminUser)
-			if err != nil {
-				testCaseErr = fmt.Errorf("error creating username encryption for test case [ %s ]: %v", testCase.name, err)
-				t.FailNow()
-			}
-			viper.Set("admin-user", username)
-			viper.Set("admin-password", password)
+			viper.Set("password", password)
+			viper.Set("user", DefUser)
 			if testCase.isAdmin {
-				r.SetBasicAuth(DefAdminUser, DefAdminPass)
+				r.SetBasicAuth(DefUser, DefPass)
 			}
 			router.Use(AuthenticationMiddleware)
 			w := httptest.NewRecorder()
