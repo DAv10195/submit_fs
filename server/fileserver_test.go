@@ -55,26 +55,36 @@ func TestFileServerHandlers(t *testing.T) {
 	}
 	body := &bytes.Buffer{}
 	tmpDir := os.TempDir()
-	davidPath := filepath.Join(tmpDir, "david.txt")
+	filesPath := filepath.Join(tmpDir, "files")
+	if err := os.Mkdir(filesPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	davidPath := filepath.Join(filesPath, "david.txt")
 	err := ioutil.WriteFile(davidPath, []byte("david"), 0755)
 	if err != nil {
-		fmt.Printf("Unable to write file: %v", err)
+		t.Fatalf("Unable to write file: %v", err)
 	}
 	defer os.Remove(davidPath)
 	file, err := os.Open(davidPath)
 	if err != nil {
-		fmt.Printf("error creating file to upload : %v",  err)
-		t.FailNow()
+		t.Fatalf("error creating file to upload : %v",  err)
 	}
 	defer file.Close()
 	router := mux.NewRouter()
 	viper.Set("file-server-path", tmpDir)
 	err = InitFsEncryption()
-	defer os.Remove(filepath.Join(tmpDir, "submit_file_server.key"))
 	if err != nil {
-		fmt.Printf("error creating encryption key for : %v",  err)
+		t.Fatalf("error creating encryption key for : %v",  err)
 	}
-	router = InitRouters(router)
+	defer os.Remove(filepath.Join(tmpDir, "submit_file_server.key"))
+	password, err := fsEncryption.Encrypt(DefPass)
+	if err != nil {
+		t.Fatalf("error creating password encryption for test: %v", err)
+	}
+	viper.Set("password", password)
+	viper.Set("user", DefUser)
+	defer os.Remove(filesPath)
+	router = InitRouters(router, filesPath)
 	router.Use(AuthenticationMiddleware)
 	for _, testCase := range testCases {
 		var r *http.Request
@@ -94,17 +104,9 @@ func TestFileServerHandlers(t *testing.T) {
 				testCaseErr = fmt.Errorf("error creating http request for test case [ %s ]: %v", testCase.name, err)
 				t.FailNow()
 			}
-			password, err := fsEncryption.Encrypt(DefPass)
-			if err != nil {
-				testCaseErr = fmt.Errorf("error creating password encryption for test case [ %s ]: %v", testCase.name, err)
-				t.FailNow()
-			}
-			viper.Set("password", password)
-			viper.Set("user", DefUser)
 			if testCase.isAdmin {
 				r.SetBasicAuth(DefUser, DefPass)
 			}
-			router.Use(AuthenticationMiddleware)
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, r)
 			if w.Code != testCase.status {

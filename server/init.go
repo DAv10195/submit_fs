@@ -17,8 +17,8 @@ func NewFileServer(router *mux.Router) *http.Server {
 	}
 }
 
-func InitRouters(r *mux.Router) *mux.Router {
-	handler := http.FileServer(http.Dir(viper.GetString("file-server-path")))
+func InitRouters(r *mux.Router, path string) *mux.Router {
+	handler := http.FileServer(http.Dir(path))
 	r.PathPrefix("/").HandlerFunc(handler.ServeHTTP).Methods(http.MethodGet)
 	r.PathPrefix("/").HandlerFunc(uploadFile).Methods(http.MethodPost)
 	return r

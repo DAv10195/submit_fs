@@ -58,7 +58,11 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 			}
 			baseRouter := mux.NewRouter()
 			baseRouter.Use(server.AuthenticationMiddleware)
-			router := server.InitRouters(baseRouter)
+			filesPath := filepath.Join(viper.GetString(flagFileServerPath), "files")
+			if err := os.Mkdir(filesPath, 0700); err != nil {
+				logrus.WithError(err).Fatalf("error creating \"files\" directory for storing files in %s", viper.GetString(flagFileServerPath))
+			}
+			router := server.InitRouters(baseRouter, filesPath)
 			server.InitFolders()
 			fs := server.NewFileServer(router)
 			go func() {
