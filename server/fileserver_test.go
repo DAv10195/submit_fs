@@ -59,12 +59,12 @@ func TestFileServerHandlers(t *testing.T) {
 	if err := os.Mkdir(filesPath, 0755); err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(filesPath)
 	davidPath := filepath.Join(filesPath, "david.txt")
 	err := ioutil.WriteFile(davidPath, []byte("david"), 0755)
 	if err != nil {
 		t.Fatalf("Unable to write file: %v", err)
 	}
-	defer os.Remove(davidPath)
 	file, err := os.Open(davidPath)
 	if err != nil {
 		t.Fatalf("error creating file to upload : %v",  err)
