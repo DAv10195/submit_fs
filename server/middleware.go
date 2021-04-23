@@ -21,7 +21,7 @@ func AuthenticationMiddleware(next http.Handler) http.Handler {
 		}
 		if viper.GetString("user") != username || password != decryptedPass {
 			logger.Error("Auth error - please authenticate with valid creds")
-			writeStrErrResp(w, req, http.StatusUnauthorized, "admin creds are incorrect. try again")
+			writeStrErrResp(w, req, http.StatusUnauthorized, unauthorized)
 			return
 		}
 		next.ServeHTTP(w, req)

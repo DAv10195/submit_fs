@@ -56,10 +56,32 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 			} else {
 				logger.Debug("log file undefined")
 			}
+
+			if err := server.InitFsEncryption(); err != nil {
+				logger.WithError(err).Fatal("error setting up encryption")
+			}
+			encryptPass, err := server.Encrypt(viper.GetString(flagPassword))
+			if err != nil {
+				logger.WithError(err).Fatal("error encrypting password")
+			}
+			viper.Set(flagPassword, encryptPass)
+			usedConfFile := viper.ConfigFileUsed()
+			if usedConfFile != "" {
+				if _, err := os.Stat(usedConfFile); err != nil {
+					if !os.IsNotExist(err) {
+						logger.WithError(err).Fatalf("error accessing config file at %s", usedConfFile)
+					}
+				} else {
+					err = viper.WriteConfig()
+					if err != nil {
+						logger.WithError(err).Fatalf("error updating config file at %s", usedConfFile)
+					}
+				}
+			}
 			baseRouter := mux.NewRouter()
 			baseRouter.Use(server.AuthenticationMiddleware)
 			filesPath := filepath.Join(viper.GetString(flagFileServerPath), "files")
-			if err := os.Mkdir(filesPath, 0700); err != nil {
+			if err := os.MkdirAll(filesPath, 0700); err != nil {
 				logrus.WithError(err).Fatalf("error creating \"files\" directory for storing files in %s", viper.GetString(flagFileServerPath))
 			}
 			router := server.InitRouters(baseRouter, filesPath)
@@ -82,11 +104,6 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 		},
 	}
 
-	err := server.InitFsEncryption()
-	if err != nil {
-		logger.WithError(err).Fatal("failed to create key for encryption")
-	}
-
 	configFlagSet := pflag.NewFlagSet(fileServer, pflag.ContinueOnError)
 	_ = configFlagSet.StringP(flagConfigFile, "c", "", "path to submit fs config file")
 	configFlagSet.SetOutput(ioutil.Discard)
@@ -104,6 +121,8 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	viper.SetDefault(flagLogLevel, info)
 	viper.SetDefault(flagFileServerPort, server.DefPort)
 	viper.SetDefault(flagFileServerPath, path.GetDefaultWorkDirPath())
+	viper.SetDefault(flagPassword, server.DefPass)
+	viper.SetDefault(flagUser, server.DefUser)
 
 	startCmd.Flags().AddFlagSet(configFlagSet)
 	startCmd.Flags().Int(flagLogFileMaxBackups, viper.GetInt(flagLogFileMaxBackups), "maximum number of log file rotations")
@@ -114,21 +133,10 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	startCmd.Flags().String(flagLogFile, viper.GetString(flagLogFile), "log to file, specify the file location")
 	startCmd.Flags().Int(flagFileServerPort, viper.GetInt(flagFileServerPort), "port the file server should listen on")
 	startCmd.Flags().String(flagFileServerPath, viper.GetString(flagFileServerPath), "directory to store the files of the server, starting from home")
-	startCmd.Flags().String(flagAdminPass, viper.GetString(flagAdminPass), "password")
-	startCmd.Flags().String(flagAdminUser, viper.GetString(flagAdminUser), "username")
+	startCmd.Flags().String(flagPassword, viper.GetString(flagPassword), "password")
+	startCmd.Flags().String(flagUser, viper.GetString(flagUser), "username")
 
-	err = viper.ReadInConfig()
-	if !os.IsNotExist(err) {
-		encryptPass, err := server.Encrypt(viper.GetString(flagAdminPass))
-		if err != nil {
-			setupErr = err
-		}
-		viper.Set(flagAdminPass, encryptPass)
-		err = viper.WriteConfig()
-		if err != nil {
-			setupErr = err
-		}
-	} else if err != nil {
+	if err := viper.ReadInConfig(); err != nil && !os.IsNotExist(err) {
 		setupErr = err
 	}
 

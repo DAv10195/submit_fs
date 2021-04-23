@@ -20,7 +20,7 @@ func NewFileServer(router *mux.Router) *http.Server {
 func InitRouters(r *mux.Router, path string) *mux.Router {
 	handler := http.FileServer(http.Dir(path))
 	r.PathPrefix("/").HandlerFunc(handler.ServeHTTP).Methods(http.MethodGet)
-	r.PathPrefix("/").HandlerFunc(uploadFile).Methods(http.MethodPost)
+	r.PathPrefix("/").HandlerFunc(getUploadHandler(path).ServeHTTP).Methods(http.MethodPost)
 	return r
 }
 
