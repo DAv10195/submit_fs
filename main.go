@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/nikitakogan1/submit-file-server/cmd"
+	"github.com/DAv10195/submit_fs/cmd"
 	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"

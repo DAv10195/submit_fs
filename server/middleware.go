@@ -1,4 +1,4 @@
-package fileserver
+package server
 
 import (
 	"github.com/spf13/viper"
@@ -9,29 +9,22 @@ func AuthenticationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		username, password, ok := req.BasicAuth()
 		if !ok {
-			logger.Error("failed performing basic auth")
+			logger.Error("failed fetching user and password from request")
 			writeStrErrResp(w, req, http.StatusUnauthorized, unauthorized)
 			return
 		}
-		decryptedUser, err := Decrypt(viper.GetString("admin-user"))
+		decryptedPass, err := fsEncryption.Decrypt(viper.GetString("password"))
 		if err != nil {
-			logger.Error("decryption user problem")
+			logger.WithError(err).Error("decryption password error")
 			writeStrErrResp(w, req, http.StatusUnauthorized, unauthorized)
 			return
 		}
-		decryptedPass, err := Decrypt(viper.GetString("admin-password"))
-		if err != nil {
-			logger.Error("decryption password error ")
+		if viper.GetString("user") != username || password != decryptedPass {
+			logger.Error("Auth error - please authenticate with valid creds")
 			writeStrErrResp(w, req, http.StatusUnauthorized, unauthorized)
-			return
-		}
-		if username != decryptedUser || password != decryptedPass {
-			logger.Error("Auth error - please authenticate with admin user / invalid creds")
-			writeStrErrResp(w, req, http.StatusUnauthorized, wrongCreds)
 			return
 		}
 		next.ServeHTTP(w, req)
 	})
 
 }
-

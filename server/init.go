@@ -1,6 +1,7 @@
-package fileserver
+package server
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"net/http"
@@ -9,17 +10,17 @@ import (
 
 func NewFileServer(router *mux.Router) *http.Server {
 	return &http.Server{
-		Addr: viper.GetString("file-server-port"),
+		Addr: fmt.Sprintf(":%s", viper.GetString("file-server-port")),
 		Handler:      router,
 		WriteTimeout: serverTimeout,
 		ReadTimeout:  serverTimeout,
 	}
 }
 
-func InitRouters(r *mux.Router) *mux.Router {
-	handler := http.FileServer(http.Dir(viper.GetString("file-sever-path")))
+func InitRouters(r *mux.Router, path string) *mux.Router {
+	handler := http.FileServer(http.Dir(path))
 	r.PathPrefix("/").HandlerFunc(handler.ServeHTTP).Methods(http.MethodGet)
-	r.PathPrefix("/").HandlerFunc(uploadFile).Methods(http.MethodPost)
+	r.PathPrefix("/").HandlerFunc(getUploadHandler(path).ServeHTTP).Methods(http.MethodPost)
 	return r
 }
 

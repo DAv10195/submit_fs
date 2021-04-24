@@ -1,4 +1,4 @@
-package fileserver
+package server
 
 import (
 	"encoding/json"
@@ -24,13 +24,8 @@ func writeResponse(w http.ResponseWriter, r *http.Request, httpStatus int, respo
 	}
 }
 
-
 func writeStrErrResp(w http.ResponseWriter, r *http.Request, httpStatus int, str string) {
 	err := fmt.Errorf(str)
 	logger.WithError(err).Errorf(logHttpErrFormat, r.URL.Path)
 	writeResponse(w, r, httpStatus, &Response{err.Error()})
 }
-
-
-
-

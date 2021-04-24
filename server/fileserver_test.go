@@ -1,4 +1,4 @@
-package fileserver
+package server
 
 import (
 	"bytes"
@@ -17,9 +17,6 @@ import (
 
 func TestFileServerHandlers(t *testing.T) {
 	testPath := "/david.txt"
-	//upFilePath := filepath.Join(path.GetDefaultWorkDirPath(), testPath)
-	//downFilePath := filepath.Join(path.GetDefaultWorkDirPath(),testPath)
-	//InitFolders()
 	testCases := []struct{
 		name	string
 		method	string
@@ -57,22 +54,37 @@ func TestFileServerHandlers(t *testing.T) {
 		},
 	}
 	body := &bytes.Buffer{}
-	err := ioutil.WriteFile("david.txt", []byte("david"), 0755)
-	if err != nil {
-		fmt.Printf("Unable to write file: %v", err)
+	tmpDir := os.TempDir()
+	filesPath := filepath.Join(tmpDir, "files")
+	if err := os.Mkdir(filesPath, 0755); err != nil {
+		t.Fatal(err)
 	}
-	file, err := os.Open("david.txt")
+	defer os.RemoveAll(filesPath)
+	davidPath := filepath.Join(filesPath, "david.txt")
+	err := ioutil.WriteFile(davidPath, []byte("david"), 0755)
 	if err != nil {
-		fmt.Printf("error creating file to upload : %v",  err)
-		t.FailNow()
+		t.Fatalf("Unable to write file: %v", err)
+	}
+	file, err := os.Open(davidPath)
+	if err != nil {
+		t.Fatalf("error creating file to upload : %v",  err)
 	}
 	defer file.Close()
 	router := mux.NewRouter()
+	viper.Set("file-server-path", tmpDir)
 	err = InitFsEncryption()
 	if err != nil {
-		fmt.Printf("error creating encryption key for : %v",  err)
+		t.Fatalf("error creating encryption key for : %v",  err)
 	}
-	router = InitRouters(router)
+	defer os.Remove(filepath.Join(tmpDir, "submit_file_server.key"))
+	password, err := fsEncryption.Encrypt(DefPass)
+	if err != nil {
+		t.Fatalf("error creating password encryption for test: %v", err)
+	}
+	viper.Set("password", password)
+	viper.Set("user", DefUser)
+	defer os.Remove(filesPath)
+	router = InitRouters(router, filesPath)
 	router.Use(AuthenticationMiddleware)
 	for _, testCase := range testCases {
 		var r *http.Request
@@ -92,23 +104,9 @@ func TestFileServerHandlers(t *testing.T) {
 				testCaseErr = fmt.Errorf("error creating http request for test case [ %s ]: %v", testCase.name, err)
 				t.FailNow()
 			}
-
-			password, err := Encrypt(DefAdminPass)
-			if err != nil {
-				testCaseErr = fmt.Errorf("error creating password encryption for test case [ %s ]: %v", testCase.name, err)
-				t.FailNow()
-			}
-			username , err := Encrypt(DefAdminUser)
-			if err != nil {
-				testCaseErr = fmt.Errorf("error creating username encryption for test case [ %s ]: %v", testCase.name, err)
-				t.FailNow()
-			}
-			viper.Set("admin-user", username)
-			viper.Set("admin-password", password)
 			if testCase.isAdmin {
-				r.SetBasicAuth(DefAdminUser, DefAdminPass)
+				r.SetBasicAuth(DefUser, DefPass)
 			}
-			router.Use(AuthenticationMiddleware)
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, r)
 			if w.Code != testCase.status {
