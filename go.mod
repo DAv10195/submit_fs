@@ -12,3 +12,5 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/DAv10195/submit_commons => ..\submit_commons
