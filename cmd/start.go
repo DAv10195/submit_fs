@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"github.com/DAv10195/submit_fs/path"
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -60,11 +62,14 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 			if err := server.InitFsEncryption(); err != nil {
 				logger.WithError(err).Fatal("error setting up encryption")
 			}
-			encryptPass, err := server.Encrypt(viper.GetString(flagPassword))
-			if err != nil {
-				logger.WithError(err).Fatal("error encrypting password")
+			encryptPass := viper.GetString(flagPassword)
+			if !strings.Contains(encryptPass,"encrypted:"){
+				encryptPass, err = server.Encrypt(encryptPass)
+				if err != nil {
+					logger.WithError(err).Fatal("error encrypting password")
+				}
 			}
-			viper.Set(flagPassword, encryptPass)
+			viper.Set(flagPassword, strings.TrimPrefix(encryptPass, "encrypted:"))
 			usedConfFile := viper.ConfigFileUsed()
 			if usedConfFile != "" {
 				if _, err := os.Stat(usedConfFile); err != nil {
@@ -72,9 +77,9 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 						logger.WithError(err).Fatalf("error accessing config file at %s", usedConfFile)
 					}
 				} else {
-					err = viper.WriteConfig()
-					if err != nil {
-						logger.WithError(err).Fatalf("error updating config file at %s", usedConfFile)
+					// replace the password section with the encrypted password
+					if !strings.Contains(encryptPass, "encrypted:"){
+						encryptConfig(usedConfFile, encryptPass)
 					}
 				}
 			}
@@ -144,5 +149,61 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 }
 
 
+func encryptConfig(usedConfFile string, encryptPass string) error{
+	var s = make([]string,2)
+	s[0] = "password:"
+	s[1] = "encrypted:" + encryptPass
+	confLines, err := readLines(usedConfFile)
+	if err != nil {
+		return err
+	}
+	for i:=0; i<len(confLines);i++{
+		if strings.Contains(confLines[i], "password:"){
+			confLines[i] = strings.Join(s," ")
+		}
+	}
+	err = writeLines(confLines, usedConfFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
+func readLines(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.WithError(err).Error("error closing config file after reading");
+		}
+	}()
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	return lines, scanner.Err()
+}
 
+// writeLines writes the lines to the given file.
+func writeLines(lines []string, path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.WithError(err).Error("error closing config file after writing");
+		}
+	}()
+	w := bufio.NewWriter(file)
+	for _, line := range lines {
+		_, err := fmt.Fprintln(w, line)
+		if err != nil {
+			logger.WithError(err).Error("error writing lines in to file")
+		}
+	}
+	return w.Flush()
+}
