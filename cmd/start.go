@@ -175,8 +175,11 @@ func readLines(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.WithError(err).Error("error closing config file after reading");
+		}
+	}()
 	var lines []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -191,11 +194,17 @@ func writeLines(lines []string, path string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.WithError(err).Error("error closing config file after writing");
+		}
+	}()
 	w := bufio.NewWriter(file)
 	for _, line := range lines {
-		fmt.Fprintln(w, line)
+		_, err := fmt.Fprintln(w, line)
+		if err != nil {
+			logger.WithError(err).Error("error writing lines in to file")
+		}
 	}
 	return w.Flush()
 }
