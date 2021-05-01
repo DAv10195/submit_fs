@@ -79,7 +79,7 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 				} else {
 					// replace the password section with the encrypted password
 					if !strings.Contains(encryptPass, "encrypted:"){
-						encryptConfig(encryptPass)
+						encryptConfig(usedConfFile, encryptPass)
 					}
 				}
 			}
@@ -149,12 +149,11 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 }
 
 
-func encryptConfig(encryptPass string) error{
+func encryptConfig(usedConfFile string, encryptPass string) error{
 	var s = make([]string,2)
 	s[0] = "password:"
 	s[1] = "encrypted:" + encryptPass
-	confPath := filepath.Join(viper.GetString(flagFileServerPath),defaultConfigFileName)
-	confLines, err := readLines(confPath)
+	confLines, err := readLines(usedConfFile)
 	if err != nil {
 		return err
 	}
@@ -163,7 +162,7 @@ func encryptConfig(encryptPass string) error{
 			confLines[i] = strings.Join(s," ")
 		}
 	}
-	err = writeLines(confLines, confPath)
+	err = writeLines(confLines, usedConfFile)
 	if err != nil {
 		return err
 	}
