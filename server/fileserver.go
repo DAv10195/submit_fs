@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func getUploadHandler(fsPath string) http.Handler {
@@ -24,14 +25,16 @@ func getUploadHandler(fsPath string) http.Handler {
 				return
 			}
 		}()
-		path := filepath.Dir(req.URL.Path)
+		path := req.URL.Path
 		filePath := filepath.Join(fsPath,req.URL.String())
-		if req.Header.Get("Content-type") != multipartform {
+		reqType := req.Header.Get("Content-type")
+		if !strings.Contains(reqType, multipartform){
 			// copy the body of the request to the file.
 			// in this case the url will be used for the file name.
 			// example:  a/b/c.txt in the request will form a file named c.txt in a/b and its content
 			// will be the body of the request.
-			err := os.MkdirAll(filepath.Join(fsPath, path), 0755)
+
+			err := os.MkdirAll(filepath.Dir(filePath), 0755)
 			if err != nil {
 				logger.WithError(err).Error("Error creating user directories")
 				status = http.StatusInternalServerError
@@ -39,7 +42,7 @@ func getUploadHandler(fsPath string) http.Handler {
 			}
 			//check if the file exist. if yes delete it first.
 			// TODO: check david if its safe for us.
-			if _, err := os.Stat(filePath); err != nil {
+			if _, err := os.Stat(filePath); !os.IsNotExist(err) {
 				err := os.Remove(filePath)
 				if err != nil {
 					logger.WithError(err).Error("Error removing existing file and replacing it")
@@ -113,5 +116,45 @@ func getUploadHandler(fsPath string) http.Handler {
 		}
 		writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
 		logger.Info("Finished uploading")
+	})
+}
+
+func getDownloadHandler(fsPath string) http.Handler {
+	return http.HandlerFunc(func (res http.ResponseWriter, req *http.Request) {
+		var (
+			status int
+			err  error
+		)
+		defer func() {
+			if err != nil {
+				writeResponse(res, req, status, &Response{err.Error()})
+				return
+			}
+		}()
+		path := filepath.Join(fsPath,req.URL.String())
+		//first check if its folder or file.
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			logger.WithError(err).Error("file/folder does not exist")
+			status = http.StatusNotFound
+			return
+		}
+		if info.IsDir() {
+			path = req.URL.String()
+			tarFileName := filepath.Base(path)
+			fullPathToTar := filepath.Join(filepath.Join(fsPath, path,tarFileName)) + ".tar.gz"
+			tarFile, err := os.Create(fullPathToTar)
+			err = Compress(filepath.Join(fsPath,path), tarFile)
+			if err != nil {
+				logger.WithError(err).Error("Failed to compress the folder")
+				status = http.StatusInternalServerError
+				return
+			}
+			// put the compressed file into the response.
+
+			http.ServeFile(res,req,fullPathToTar)
+		} else {
+			http.ServeFile(res,req,path)
+		}
 	})
 }
