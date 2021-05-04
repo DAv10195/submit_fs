@@ -24,6 +24,50 @@ func getUploadHandler(fsPath string) http.Handler {
 				return
 			}
 		}()
+		path := filepath.Dir(req.URL.Path)
+		filePath := filepath.Join(fsPath,req.URL.String())
+		if req.Header.Get("Content-type") != multipartform {
+			// copy the body of the request to the file.
+			// in this case the url will be used for the file name.
+			// example:  a/b/c.txt in the request will form a file named c.txt in a/b and its content
+			// will be the body of the request.
+			err := os.MkdirAll(filepath.Join(fsPath, path), 0755)
+			if err != nil {
+				logger.WithError(err).Error("Error creating user directories")
+				status = http.StatusInternalServerError
+				return
+			}
+			//check if the file exist. if yes delete it first.
+			// TODO: check david if its safe for us.
+			if _, err := os.Stat(filePath); err != nil {
+				err := os.Remove(filePath)
+				if err != nil {
+					logger.WithError(err).Error("Error removing existing file and replacing it")
+					status = http.StatusInternalServerError
+					return
+				}
+			}
+			out, err := os.Create(filePath)
+			if err != nil {
+				logger.WithError(err).Error("Error creating user file (raw data from body)")
+				status = http.StatusInternalServerError
+				return
+			}
+			defer func() {
+				err = out.Close()
+				if err != nil {
+					writeResponse(res, req, status, &Response{err.Error()})
+					return
+				}
+			}()
+			_, err = io.Copy(out, req.Body)
+			if err != nil {
+				logger.WithError(err).Error("Error copying the request body to file (raw data from body)")
+				status = http.StatusInternalServerError
+				return
+			}
+			return
+		}
 		res.Header().Set("Content-Type", "application/json")
 		// max memory: 20^32 mb
 		if err = req.ParseMultipartForm(32 << 20); nil != err {
@@ -41,7 +85,6 @@ func getUploadHandler(fsPath string) http.Handler {
 					return
 				}
 				// get the path in which we want to store the file from the request URL.
-				path := filepath.Dir(req.URL.Path)
 				// Create the path in the file server if not exist.
 				err := os.MkdirAll(filepath.Join(fsPath, path), 0755)
 				if err != nil {

@@ -9,6 +9,7 @@ const (
  	DefPort							= "80"
  	DefUser							= "admin"
  	DefPass							= "admin"
+ 	multipartform                   = "multipart/form-data"
 )
 
 
