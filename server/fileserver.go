@@ -89,6 +89,7 @@ func getUploadHandler(fsPath string) http.Handler {
 				}
 				// get the path in which we want to store the file from the request URL.
 				// Create the path in the file server if not exist.
+				path = filepath.Dir(path)
 				err := os.MkdirAll(filepath.Join(fsPath, path), 0755)
 				if err != nil {
 					logger.WithError(err).Error("Error creating user directories")
