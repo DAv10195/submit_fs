@@ -10,18 +10,19 @@ import (
 "strings"
 )
 
-func Compress(src string, writers io.Writer) error {
+func Compress(src string, writers ...io.Writer) error {
 
+	fullTarPath := filepath.Join(src, filepath.Base(src) + ".tar.gz")
 	// ensure the src actually exists before trying to tar it
 	if _, err := os.Stat(src); err != nil {
 		return fmt.Errorf("Unable to tar files - %v", err.Error())
 	}
-	mw := io.MultiWriter(writers)
+	mw := io.MultiWriter(writers...)
 	gzw := gzip.NewWriter(mw)
 	defer func() {
 		err := gzw.Close()
 		if err != nil {
-			logger.Error("clossing file failed")
+			logger.Error("closing failed for gzip writer")
 			return
 		}
 	}()
@@ -30,7 +31,7 @@ func Compress(src string, writers io.Writer) error {
 	defer func() {
 		err := tw.Close()
 		if err != nil {
-			logger.Error("closing file failed")
+			logger.Error("closing failed for tar writer")
 			return
 		}
 	}()
@@ -42,9 +43,7 @@ func Compress(src string, writers io.Writer) error {
 		if err != nil {
 			return err
 		}
-
-		// return on non-regular files
-		if !fi.Mode().IsRegular() {
+		if file == fullTarPath {
 			return nil
 		}
 
@@ -62,6 +61,10 @@ func Compress(src string, writers io.Writer) error {
 			return err
 		}
 
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+
 		// open files for taring
 		f, err := os.Open(file)
 		if err != nil {
@@ -69,7 +72,7 @@ func Compress(src string, writers io.Writer) error {
 		}
 
 		// copy file data into tar writer
-		if _, err := io.Copy(tw, f); err != nil {
+		if _, err = io.Copy(tw, f); err != nil {
 			return err
 		}
 
@@ -79,6 +82,7 @@ func Compress(src string, writers io.Writer) error {
 		if err != nil {
 			return err
 		}
+
 		return nil
 	})
 }
@@ -147,3 +151,4 @@ func Extract(dst string, r io.Reader) error {
 		}
 	}
 }
+
