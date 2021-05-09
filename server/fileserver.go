@@ -41,7 +41,6 @@ func getUploadHandler(fsPath string) http.Handler {
 				return
 			}
 			//check if the file exist. if yes delete it first.
-			// TODO: check david if its safe for us.
 			if _, err := os.Stat(filePath); !os.IsNotExist(err) {
 				err := os.Remove(filePath)
 				if err != nil {
@@ -59,7 +58,7 @@ func getUploadHandler(fsPath string) http.Handler {
 			defer func() {
 				err = out.Close()
 				if err != nil {
-					writeResponse(res, req, status, &Response{err.Error()})
+					status = http.StatusInternalServerError
 					return
 				}
 			}()
@@ -69,6 +68,8 @@ func getUploadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
+			//write response
+			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
 			return
 		}
 		res.Header().Set("Content-Type", "application/json")
@@ -140,11 +141,21 @@ func getDownloadHandler(fsPath string) http.Handler {
 			status = http.StatusNotFound
 			return
 		}
+		if err != nil {
+			logger.WithError(err).Error("error getting the file/folder")
+			status = http.StatusInternalServerError
+			return
+		}
 		if info.IsDir() {
 			path = req.URL.String()
 			tarFileName := filepath.Base(path)
-			fullPathToTar := filepath.Join(filepath.Join(fsPath, path,tarFileName)) + ".tar.gz"
+			fullPathToTar := filepath.Join(fsPath, path,tarFileName) + ".tar.gz"
 			tarFile, err := os.Create(fullPathToTar)
+			if err != nil {
+				logger.WithError(err).Error("Failed to create the tar gz file")
+				status = http.StatusInternalServerError
+				return
+			}
 			err = Compress(filepath.Join(fsPath,path), tarFile)
 			if err != nil {
 				logger.WithError(err).Error("Failed to compress the folder")
@@ -152,7 +163,6 @@ func getDownloadHandler(fsPath string) http.Handler {
 				return
 			}
 			// put the compressed file into the response.
-
 			http.ServeFile(res,req,fullPathToTar)
 		} else {
 			http.ServeFile(res,req,path)
