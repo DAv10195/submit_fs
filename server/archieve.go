@@ -22,7 +22,7 @@ func Compress(src string, writers ...io.Writer) error {
 	defer func() {
 		err := gzw.Close()
 		if err != nil {
-			logger.Error("closing failed for gzip writer")
+			logger.WithError(err).Error("closing failed for gzip writer")
 			return
 		}
 	}()
@@ -31,7 +31,7 @@ func Compress(src string, writers ...io.Writer) error {
 	defer func() {
 		err := tw.Close()
 		if err != nil {
-			logger.Error("closing failed for tar writer")
+			logger.WithError(err).Error("closing failed for tar writer")
 			return
 		}
 	}()
@@ -96,7 +96,7 @@ func Extract(dst string, r io.Reader) error {
 	defer func() {
 		err := gzr.Close()
 		if err != nil {
-			logger.Error("closing file failed")
+			logger.WithError(err).Error("closing gzip writer failed")
 			return
 		}
 	}()
@@ -124,7 +124,7 @@ func Extract(dst string, r io.Reader) error {
 
 		// if its a dir and it doesn't exist create it
 		case tar.TypeDir:
-			if _, err := os.Stat(target); err != nil {
+			if _, err := os.Stat(target); os.IsNotExist(err) {
 				if err := os.MkdirAll(target, 0755); err != nil {
 					return err
 				}
