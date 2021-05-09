@@ -41,13 +41,17 @@ func getUploadHandler(fsPath string) http.Handler {
 				return
 			}
 			//check if the file exist. if yes delete it first.
-			if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-				err := os.Remove(filePath)
-				if err != nil {
-					logger.WithError(err).Error("Error removing existing file and replacing it")
-					status = http.StatusInternalServerError
-					return
-				}
+			if _, err := os.Stat(filePath); err == nil {
+					err = os.Remove(filePath)
+					if err != nil {
+						logger.WithError(err).Error("Error removing existing file and replacing it")
+						status = http.StatusInternalServerError
+						return
+					}
+			} else if !os.IsNotExist(err){
+				logger.WithError(err).Error("Error uploading the file - file already exist and cannot be deleten")
+				status = http.StatusInternalServerError
+				return
 			}
 			out, err := os.Create(filePath)
 			if err != nil {
@@ -136,12 +140,12 @@ func getDownloadHandler(fsPath string) http.Handler {
 		path := filepath.Join(fsPath,req.URL.String())
 		//first check if its folder or file.
 		info, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			logger.WithError(err).Error("file/folder does not exist")
-			status = http.StatusNotFound
-			return
-		}
 		if err != nil {
+			if os.IsNotExist(err) {
+				logger.WithError(err).Error("file/folder does not exist")
+				status = http.StatusNotFound
+				return
+			}
 			logger.WithError(err).Error("error getting the file/folder")
 			status = http.StatusInternalServerError
 			return
