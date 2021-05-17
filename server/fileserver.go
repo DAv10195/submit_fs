@@ -2,13 +2,13 @@ package server
 
 import (
 	"fmt"
+	commons "github.com/DAv10195/submit_commons"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	commons "github.com/DAv10195/submit_commons"
 )
 
 func getUploadHandler(fsPath string) http.Handler {
@@ -155,6 +155,7 @@ func getDownloadHandler(fsPath string) http.Handler {
 			return
 		}
 		if info.IsDir() {
+			logger.Debug(fmt.Sprintf("Handling the download of the directory %s", info.Name()))
 			path = req.URL.String()
 			f := filepath.Join(os.TempDir(), commons.GenerateUniqueId())
 			fullPathToTar := fmt.Sprintf("%s.tar.gz", f)
@@ -172,7 +173,7 @@ func getDownloadHandler(fsPath string) http.Handler {
 				return
 			}
 			// put the compressed file into the response.
-			logger.Debug(fmt.Printf("Downloading the file %s,",fullPathToTar))
+			logger.Debug(fmt.Printf("Downloading the folder %s,",fullPathToTar))
 			http.ServeFile(res,req,fullPathToTar)
 		} else {
 			logger.Debug(fmt.Printf("Downloading the file %s,",path))

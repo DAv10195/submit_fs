@@ -21,6 +21,7 @@ func Compress(src string, writers ...io.Writer) error {
 		err := gzw.Close()
 		if err != nil {
 			logger.WithError(err).Error("closing failed for gzip writer")
+			return
 		}
 	}()
 
@@ -90,6 +91,7 @@ func Extract(dst string, r io.Reader) error {
 		err := gzr.Close()
 		if err != nil {
 			logger.WithError(err).Error("closing gzip writer failed")
+			return
 		}
 	}()
 
