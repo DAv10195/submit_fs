@@ -152,8 +152,11 @@ func getDownloadHandler(fsPath string) http.Handler {
 		}
 		if info.IsDir() {
 			path = req.URL.String()
-			tarFileName := filepath.Base(path)
-			fullPathToTar := filepath.Join(fsPath, path,tarFileName) + ".tar.gz"
+			var tarFileName = "archive"
+			if path != "/"{
+				tarFileName = filepath.Base(path)
+			}
+			fullPathToTar := filepath.Join(os.TempDir(), tarFileName) + ".tar.gz"
 			tarFile, err := os.Create(fullPathToTar)
 			if err != nil {
 				logger.WithError(err).Error("Failed to create the tar gz file")
