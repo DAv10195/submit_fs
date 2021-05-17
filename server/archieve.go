@@ -1,18 +1,17 @@
 package server
 
 import (
-"archive/tar"
-"compress/gzip"
-"fmt"
-"io"
-"os"
-"path/filepath"
-"strings"
+	"archive/tar"
+	"compress/gzip"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 func Compress(src string, writers ...io.Writer) error {
 
-	fullTarPath := filepath.Join(src, filepath.Base(src) + ".tar.gz")
 	// ensure the src actually exists before trying to tar it
 	if _, err := os.Stat(src); err != nil {
 		return fmt.Errorf("Unable to tar files - %v", err.Error())
@@ -42,9 +41,6 @@ func Compress(src string, writers ...io.Writer) error {
 		// return on any error
 		if err != nil {
 			return err
-		}
-		if file == fullTarPath {
-			return nil
 		}
 
 		// create a new dir/file header
