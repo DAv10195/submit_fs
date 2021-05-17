@@ -1,21 +1,19 @@
 package server
 
 import (
-"archive/tar"
-"compress/gzip"
-"fmt"
-"io"
-"os"
-"path/filepath"
-"strings"
+	"archive/tar"
+	"compress/gzip"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 func Compress(src string, writers ...io.Writer) error {
 
-	fullTarPath := filepath.Join(src, filepath.Base(src) + ".tar.gz")
 	// ensure the src actually exists before trying to tar it
 	if _, err := os.Stat(src); err != nil {
-		return fmt.Errorf("Unable to tar files - %v", err.Error())
+		return err
 	}
 	mw := io.MultiWriter(writers...)
 	gzw := gzip.NewWriter(mw)
@@ -23,7 +21,6 @@ func Compress(src string, writers ...io.Writer) error {
 		err := gzw.Close()
 		if err != nil {
 			logger.WithError(err).Error("closing failed for gzip writer")
-			return
 		}
 	}()
 
@@ -32,7 +29,6 @@ func Compress(src string, writers ...io.Writer) error {
 		err := tw.Close()
 		if err != nil {
 			logger.WithError(err).Error("closing failed for tar writer")
-			return
 		}
 	}()
 
@@ -42,9 +38,6 @@ func Compress(src string, writers ...io.Writer) error {
 		// return on any error
 		if err != nil {
 			return err
-		}
-		if file == fullTarPath {
-			return nil
 		}
 
 		// create a new dir/file header
@@ -97,7 +90,6 @@ func Extract(dst string, r io.Reader) error {
 		err := gzr.Close()
 		if err != nil {
 			logger.WithError(err).Error("closing gzip writer failed")
-			return
 		}
 	}()
 
@@ -124,7 +116,10 @@ func Extract(dst string, r io.Reader) error {
 
 		// if its a dir and it doesn't exist create it
 		case tar.TypeDir:
-			if _, err := os.Stat(target); os.IsNotExist(err) {
+			if _, err := os.Stat(target); err != nil {
+				if !os.IsNotExist(err){
+					return  err
+				}
 				if err := os.MkdirAll(target, 0755); err != nil {
 					return err
 				}

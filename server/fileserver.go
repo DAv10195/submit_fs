@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	commons "github.com/DAv10195/submit_commons"
 )
 
 func getUploadHandler(fsPath string) http.Handler {
@@ -22,8 +23,7 @@ func getUploadHandler(fsPath string) http.Handler {
 		res.Header().Set("Content-Type", "application/json")
 		defer func() {
 			if err != nil {
-				writeResponse(res, req, status, &Response{err.Error()})
-				return
+				writeStrErrResp(res, req, status, err.Error())
 			}
 		}()
 		path := req.URL.Path
@@ -35,14 +35,15 @@ func getUploadHandler(fsPath string) http.Handler {
 			// example:  a/b/c.txt in the request will form a file named c.txt in a/b and its content
 			// will be the body of the request.
 
-			err := os.MkdirAll(filepath.Dir(filePath), 0755)
+			err = os.MkdirAll(filepath.Dir(filePath), 0755)
 			if err != nil {
 				logger.WithError(err).Error("Error creating user directories")
 				status = http.StatusInternalServerError
 				return
 			}
 			//check if the file exist. if yes delete it first.
-			if _, err := os.Stat(filePath); err == nil {
+			logger.Debug(fmt.Printf("Checking if file exist for request %s", req.URL.Path))
+			if _, err = os.Stat(filePath); err == nil {
 					err = os.Remove(filePath)
 					if err != nil {
 						logger.WithError(err).Error("Error removing existing file and replacing it")
@@ -54,7 +55,9 @@ func getUploadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
-			out, err := os.Create(filePath)
+			var out *os.File
+			logger.Debug(fmt.Printf("Creating file for request %s", req.URL.Path))
+			out, err = os.Create(filePath)
 			if err != nil {
 				logger.WithError(err).Error("Error creating user file (raw data from body)")
 				status = http.StatusInternalServerError
@@ -74,16 +77,18 @@ func getUploadHandler(fsPath string) http.Handler {
 				return
 			}
 			//write response
+			logger.Debug(fmt.Printf("writing the body from request %s to file", req.URL.Path))
 			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
 			return
 		}
 		// max memory: 20^32 mb
+		logger.Debug(fmt.Printf("Starting to parse multi part form for request: %s", req.URL.Path))
 		if err = req.ParseMultipartForm(32 << 20); nil != err {
 			status = http.StatusInternalServerError
 			logger.WithError(err).Error("Cannot get file from request - Multi part form parsing issue")
 			return
 		}
-		logger.Info("Starting the uploading")
+		logger.Debug(fmt.Printf("Getting file headers from multi part from for request: %s", req.URL.Path))
 		for _, fheaders := range req.MultipartForm.File {
 			for _, hdr := range fheaders {
 				var infile multipart.File
@@ -95,14 +100,14 @@ func getUploadHandler(fsPath string) http.Handler {
 				// get the path in which we want to store the file from the request URL.
 				// Create the path in the file server if not exist.
 				path = filepath.Dir(path)
-				err := os.MkdirAll(filepath.Join(fsPath, path), 0755)
+				err = os.MkdirAll(filepath.Join(fsPath, path), 0755)
 				if err != nil {
 					logger.WithError(err).Error("Error creating user directories")
 					status = http.StatusInternalServerError
 					return
 				}
 				fullFilePath := filepath.Join(fsPath, path, hdr.Filename)
-				logger.Info("file path is:" + fullFilePath)
+				logger.Debug(fmt.Printf("Handling the file %s for request %s", hdr.Filename, req.URL.Path))
 				var outfile *os.File
 				if outfile, err = os.Create(fullFilePath); nil != err {
 					logger.WithError(err).Error("Error creating user file in file server")
@@ -121,7 +126,6 @@ func getUploadHandler(fsPath string) http.Handler {
 			}
 		}
 		writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
-		logger.Info("Finished uploading")
 	})
 }
 
@@ -133,7 +137,7 @@ func getDownloadHandler(fsPath string) http.Handler {
 		)
 		defer func() {
 			if err != nil {
-				writeResponse(res, req, status, &Response{err.Error()})
+				writeStrErrResp(res, req, status, err.Error())
 				return
 			}
 		}()
@@ -152,9 +156,10 @@ func getDownloadHandler(fsPath string) http.Handler {
 		}
 		if info.IsDir() {
 			path = req.URL.String()
-			tarFileName := filepath.Base(path)
-			fullPathToTar := filepath.Join(fsPath, path,tarFileName) + ".tar.gz"
-			tarFile, err := os.Create(fullPathToTar)
+			f := filepath.Join(os.TempDir(), commons.GenerateUniqueId())
+			fullPathToTar := fmt.Sprintf("%s.tar.gz", f)
+			var tarFile *os.File
+			tarFile, err = os.Create(fullPathToTar)
 			if err != nil {
 				logger.WithError(err).Error("Failed to create the tar gz file")
 				status = http.StatusInternalServerError
@@ -167,10 +172,10 @@ func getDownloadHandler(fsPath string) http.Handler {
 				return
 			}
 			// put the compressed file into the response.
-			logger.Info(fmt.Printf("Downloading the file %s,",fullPathToTar))
+			logger.Debug(fmt.Printf("Downloading the file %s,",fullPathToTar))
 			http.ServeFile(res,req,fullPathToTar)
 		} else {
-			logger.Info(fmt.Printf("Downloading the file %s,",path))
+			logger.Debug(fmt.Printf("Downloading the file %s,",path))
 			http.ServeFile(res,req,path)
 		}
 	})
