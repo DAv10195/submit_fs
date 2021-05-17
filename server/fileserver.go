@@ -22,7 +22,8 @@ func getUploadHandler(fsPath string) http.Handler {
 		res.Header().Set("Content-Type", "application/json")
 		defer func() {
 			if err != nil {
-				writeResponse(res, req, status, &Response{err.Error()})
+				writeStrErrResp(res, req, status, err.Error())
+				return
 			}
 		}()
 		path := req.URL.Path
@@ -63,6 +64,7 @@ func getUploadHandler(fsPath string) http.Handler {
 				err = out.Close()
 				if err != nil {
 					status = http.StatusInternalServerError
+					return
 				}
 			}()
 			_, err = io.Copy(out, req.Body)
@@ -132,6 +134,7 @@ func getDownloadHandler(fsPath string) http.Handler {
 		defer func() {
 			if err != nil {
 				writeResponse(res, req, status, &Response{err.Error()})
+				return
 			}
 		}()
 		path := filepath.Join(fsPath,req.URL.String())
