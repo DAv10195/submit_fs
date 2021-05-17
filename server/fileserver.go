@@ -19,6 +19,7 @@ func getUploadHandler(fsPath string) http.Handler {
 			totalBytesWritten int64
 			uploadedFileNames []string
 		)
+		res.Header().Set("Content-Type", "application/json")
 		defer func() {
 			if err != nil {
 				writeResponse(res, req, status, &Response{err.Error()})
@@ -76,7 +77,6 @@ func getUploadHandler(fsPath string) http.Handler {
 			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
 			return
 		}
-		res.Header().Set("Content-Type", "application/json")
 		// max memory: 20^32 mb
 		if err = req.ParseMultipartForm(32 << 20); nil != err {
 			status = http.StatusInternalServerError
@@ -167,8 +167,10 @@ func getDownloadHandler(fsPath string) http.Handler {
 				return
 			}
 			// put the compressed file into the response.
+			logger.Info(fmt.Printf("Downloading the file %s,",fullPathToTar))
 			http.ServeFile(res,req,fullPathToTar)
 		} else {
+			logger.Info(fmt.Printf("Downloading the file %s,",path))
 			http.ServeFile(res,req,path)
 		}
 	})
