@@ -43,18 +43,6 @@ func getUploadHandler(fsPath string) http.Handler {
 			}
 			//check if the file exist. if yes delete it first.
 			logger.Debug(fmt.Printf("Checking if file exist for request %s", req.URL.Path))
-			if _, err = os.Stat(filePath); err == nil {
-					err = os.Remove(filePath)
-					if err != nil {
-						logger.WithError(err).Error("Error removing existing file and replacing it")
-						status = http.StatusInternalServerError
-						return
-					}
-			} else if !os.IsNotExist(err){
-				logger.WithError(err).Error("Error uploading the file - file already exist and cannot be deleten")
-				status = http.StatusInternalServerError
-				return
-			}
 			var out *os.File
 			logger.Debug(fmt.Printf("Creating file for request %s", req.URL.Path))
 			out, err = os.Create(filePath)
@@ -69,18 +57,19 @@ func getUploadHandler(fsPath string) http.Handler {
 					status = http.StatusInternalServerError
 					return
 				}
-			}()
-			_, err = io.Copy(out, req.Body)
-			if err != nil {
-				logger.WithError(err).Error("Error copying the request body to file (raw data from body)")
-				status = http.StatusInternalServerError
+				}()
+				_, err = io.Copy(out, req.Body)
+				if err != nil {
+					logger.WithError(err).Error("Error copying the request body to file (raw data from body)")
+					status = http.StatusInternalServerError
+					return
+				}
+				//write response
+				logger.Debug(fmt.Printf("writing the body from request %s to file", req.URL.Path))
+				writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
 				return
-			}
-			//write response
-			logger.Debug(fmt.Printf("writing the body from request %s to file", req.URL.Path))
-			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
-			return
 		}
+		// handle normal single file.
 		// max memory: 20^32 mb
 		logger.Debug(fmt.Printf("Starting to parse multi part form for request: %s", req.URL.Path))
 		if err = req.ParseMultipartForm(32 << 20); nil != err {
@@ -89,6 +78,7 @@ func getUploadHandler(fsPath string) http.Handler {
 			return
 		}
 		logger.Debug(fmt.Printf("Getting file headers from multi part from for request: %s", req.URL.Path))
+		var fullFilePath string
 		for _, fheaders := range req.MultipartForm.File {
 			for _, hdr := range fheaders {
 				var infile multipart.File
@@ -106,7 +96,7 @@ func getUploadHandler(fsPath string) http.Handler {
 					status = http.StatusInternalServerError
 					return
 				}
-				fullFilePath := filepath.Join(fsPath, path, hdr.Filename)
+				fullFilePath = filepath.Join(fsPath, path, hdr.Filename)
 				logger.Debug(fmt.Printf("Handling the file %s for request %s", hdr.Filename, req.URL.Path))
 				var outfile *os.File
 				if outfile, err = os.Create(fullFilePath); nil != err {
@@ -124,6 +114,33 @@ func getUploadHandler(fsPath string) http.Handler {
 				uploadedFileNames = append(uploadedFileNames, hdr.Filename)
 				totalBytesWritten += written
 			}
+		}
+		// check if the file is tar.gz that supposed to be uploaded as a folder.
+		// check with query params.
+		isFolder := req.URL.Query().Get("isFolder")
+		if isFolder == "true" && len(uploadedFileNames) == 1{
+			var file *os.File = nil
+			dst := filepath.Dir(fullFilePath)
+			file, err = os.Open(fullFilePath)
+			if err != nil {
+				logger.WithError(err).Error("Error Opening the uploaded tar gz file")
+				status = http.StatusInternalServerError
+				return
+			}
+			err = Extract(dst, file)
+			if err != nil {
+				logger.WithError(err).Error("Error Extracting the uploaded tar gz file")
+				status = http.StatusInternalServerError
+				return
+			}
+			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Folder: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
+			//err = os.Remove(fullFilePath)
+			if err != nil {
+				logger.WithError(err).Error("Error Deleting the uploaded tar gz file")
+				status = http.StatusInternalServerError
+				return
+			}
+			return
 		}
 		writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
 	})
