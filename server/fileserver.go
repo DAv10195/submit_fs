@@ -41,8 +41,6 @@ func getUploadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
-			//check if the file exist. if yes delete it first.
-			logger.Debug(fmt.Printf("Checking if file exist for request %s", req.URL.Path))
 			var out *os.File
 			logger.Debug(fmt.Printf("Creating file for request %s", req.URL.Path))
 			out, err = os.Create(filePath)
@@ -55,7 +53,6 @@ func getUploadHandler(fsPath string) http.Handler {
 				err = out.Close()
 				if err != nil {
 					status = http.StatusInternalServerError
-					return
 				}
 				}()
 				_, err = io.Copy(out, req.Body)
@@ -66,7 +63,7 @@ func getUploadHandler(fsPath string) http.Handler {
 				}
 				//write response
 				logger.Debug(fmt.Printf("writing the body from request %s to file", req.URL.Path))
-				writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
+				writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", filepath.Base(filePath), totalBytesWritten)})
 				return
 		}
 		// handle normal single file.
@@ -133,13 +130,21 @@ func getUploadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
-			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Folder: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})
-			//err = os.Remove(fullFilePath)
+			err = file.Close()
 			if err != nil {
-				logger.WithError(err).Error("Error Deleting the uploaded tar gz file")
-				status = http.StatusInternalServerError
+				logger.WithError(err).Error("Error Closing the targz file")
 				return
 			}
+			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Folder: %v. Total Bytes Written: %v Extracted to: %v", strings.TrimSuffix(uploadedFileNames[0], filepath.Ext(uploadedFileNames[0])), totalBytesWritten, dst)})
+			err = os.Remove(fullFilePath)
+			if err != nil {
+				logger.WithError(err).Error("Error Deleting the uploaded tar gz file")
+				return
+			}
+			return
+		} else if isFolder == "true" && len(uploadedFileNames) != 1{
+			logger.WithError(err).Error("Error uploading folder to server- more then 1 file in multi part form")
+			status = http.StatusInternalServerError
 			return
 		}
 		writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", uploadedFileNames, totalBytesWritten)})

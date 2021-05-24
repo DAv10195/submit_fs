@@ -17,6 +17,7 @@ import (
 
 func TestFileServerHandlers(t *testing.T) {
 	tempDir := filepath.Join(os.TempDir(),"files")
+	defer os.Remove(tempDir)
 	dummyTestPath := filepath.Join(tempDir, "david.txt")
 	targzPath := filepath.Join(tempDir, "nikita", "nikita.tar.gz")
 	// create the files for the test.
