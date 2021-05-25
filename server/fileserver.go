@@ -52,6 +52,7 @@ func getUploadHandler(fsPath string) http.Handler {
 			defer func() {
 				err = out.Close()
 				if err != nil {
+					logger.WithError(err).Error("Error closing the file")
 					status = http.StatusInternalServerError
 				}
 				}()
@@ -86,7 +87,6 @@ func getUploadHandler(fsPath string) http.Handler {
 				}
 				// get the path in which we want to store the file from the request URL.
 				// Create the path in the file server if not exist.
-				path = filepath.Dir(path)
 				err = os.MkdirAll(filepath.Join(fsPath, path), 0755)
 				if err != nil {
 					logger.WithError(err).Error("Error creating user directories")
@@ -119,6 +119,20 @@ func getUploadHandler(fsPath string) http.Handler {
 			var file *os.File = nil
 			dst := filepath.Dir(fullFilePath)
 			file, err = os.Open(fullFilePath)
+			defer func(){
+				err = file.Close()
+				if err != nil {
+					logger.WithError(err).Error("Error Closing the targz file")
+					return
+				}
+			}()
+			defer func(){
+				err = os.Remove(fullFilePath)
+				if err != nil {
+					logger.WithError(err).Error("Error Deleting the uploaded tar gz file")
+					return
+				}
+			}()
 			if err != nil {
 				logger.WithError(err).Error("Error Opening the uploaded tar gz file")
 				status = http.StatusInternalServerError
@@ -130,17 +144,7 @@ func getUploadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
-			err = file.Close()
-			if err != nil {
-				logger.WithError(err).Error("Error Closing the targz file")
-				return
-			}
 			writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Folder: %v. Total Bytes Written: %v Extracted to: %v", strings.TrimSuffix(uploadedFileNames[0], filepath.Ext(uploadedFileNames[0])), totalBytesWritten, dst)})
-			err = os.Remove(fullFilePath)
-			if err != nil {
-				logger.WithError(err).Error("Error Deleting the uploaded tar gz file")
-				return
-			}
 			return
 		} else if isFolder == "true" && len(uploadedFileNames) != 1{
 			logger.WithError(err).Error("Error uploading folder to server- more then 1 file in multi part form")
