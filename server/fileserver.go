@@ -215,7 +215,12 @@ func getDeleteHandler(fsPath string) http.Handler {
 		contentPath := req.URL.String()
 		path := filepath.Join(fsPath, contentPath)
 		logger.Debug(fmt.Printf("Deleting the content %s,", contentPath))
-		err := os.RemoveAll(path)
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			writeStrErrResp(res, req, http.StatusNotFound, err.Error())
+			return
+		}
+		err = os.RemoveAll(path)
 		if err != nil {
 			writeStrErrResp(res, req, http.StatusInternalServerError, err.Error())
 			return
