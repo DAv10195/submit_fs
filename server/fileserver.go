@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	commons "github.com/DAv10195/submit_commons"
+	"github.com/DAv10195/submit_commons/archive"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -120,16 +121,16 @@ func getUploadHandler(fsPath string) http.Handler {
 			dst := filepath.Dir(fullFilePath)
 			file, err = os.Open(fullFilePath)
 			defer func(){
-				err = file.Close()
+				err = os.Remove(fullFilePath)
 				if err != nil {
-					logger.WithError(err).Error("Error Closing the targz file")
+					logger.WithError(err).Error("Error Deleting the uploaded tar gz file")
 					return
 				}
 			}()
 			defer func(){
-				err = os.Remove(fullFilePath)
+				err = file.Close()
 				if err != nil {
-					logger.WithError(err).Error("Error Deleting the uploaded tar gz file")
+					logger.WithError(err).Error("Error Closing the targz file")
 					return
 				}
 			}()
@@ -138,7 +139,7 @@ func getUploadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
-			err = Extract(dst, file)
+			err = archive.Extract(dst,logger, file)
 			if err != nil {
 				logger.WithError(err).Error("Error Extracting the uploaded tar gz file")
 				status = http.StatusInternalServerError
@@ -192,7 +193,7 @@ func getDownloadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
-			err = Compress(filepath.Join(fsPath,path), tarFile)
+			err = archive.Compress(filepath.Join(fsPath,path),logger, tarFile)
 			if err != nil {
 				logger.WithError(err).Error("Failed to compress the folder")
 				status = http.StatusInternalServerError
