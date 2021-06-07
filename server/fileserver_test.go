@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"github.com/DAv10195/submit_commons/archive"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"io"
@@ -51,7 +52,7 @@ func TestFileServerHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create file: %v", err)
 	}
-	err = Compress(pathForTar,targz)
+	err = archive.Compress(pathForTar, logger, targz)
 	if err != nil {
 		t.Fatalf("Unable to compress file: %v", err)
 	}
@@ -121,6 +122,14 @@ func TestFileServerHandlers(t *testing.T) {
 			http.StatusOK,
 			true,
 		},
+		{
+			"test delete content as admin",
+			http.MethodDelete,
+			dummyTestPath,
+			dummyFile,
+			http.StatusAccepted,
+			true,
+		},
 	}
 
 	router := mux.NewRouter()
@@ -150,6 +159,15 @@ func TestFileServerHandlers(t *testing.T) {
 		var r *http.Request
 		var testCaseErr error
 		if !t.Run(testCase.name, func (t *testing.T) {
+			if testCase.method == http.MethodDelete {
+				r, err = http.NewRequest(testCase.method,"/" + filepath.Base(testCase.path), nil)
+				r.SetBasicAuth(DefUser, DefPass)
+				router.ServeHTTP(w, r)
+				if w.Code != testCase.status {
+					testCaseErr = fmt.Errorf("test case [ %s ] produced status code %d instead of the expected %d status code", testCase.name, w.Code, testCase.status)
+					t.FailNow()
+				}
+			}
 			if testCase.method == http.MethodPost {
 				if testCase.name == "test upload text from body as admin"{
 					body = bytes.NewBuffer([]byte("nikita"))

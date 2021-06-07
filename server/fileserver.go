@@ -208,3 +208,23 @@ func getDownloadHandler(fsPath string) http.Handler {
 		}
 	})
 }
+
+
+func getDeleteHandler(fsPath string) http.Handler {
+	return http.HandlerFunc(func (res http.ResponseWriter, req *http.Request) {
+		contentPath := req.URL.String()
+		path := filepath.Join(fsPath, contentPath)
+		logger.Debug(fmt.Printf("Deleting the content %s,", contentPath))
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			writeStrErrResp(res, req, http.StatusNotFound, err.Error())
+			return
+		}
+		err = os.RemoveAll(path)
+		if err != nil {
+			writeStrErrResp(res, req, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Deleted the content: %v", contentPath)})
+	})
+}
