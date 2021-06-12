@@ -43,7 +43,7 @@ func getUploadHandler(fsPath string) http.Handler {
 				return
 			}
 			var out *os.File
-			logger.Debug(fmt.Printf("Creating file for request %s", req.URL.Path))
+			logger.Debugf("Creating file for request %s", req.URL.Path)
 			out, err = os.Create(filePath)
 			if err != nil {
 				logger.WithError(err).Error("Error creating user file (raw data from body)")
@@ -64,19 +64,19 @@ func getUploadHandler(fsPath string) http.Handler {
 					return
 				}
 				//write response
-				logger.Debug(fmt.Printf("writing the body from request %s to file", req.URL.Path))
+				logger.Debugf("writing the body from request %s to file", req.URL.Path)
 				writeResponse(res, req, http.StatusAccepted, &Response{fmt.Sprintf("Uploaded Files: %v. Total Bytes Written: %v", filepath.Base(filePath), totalBytesWritten)})
 				return
 		}
 		// handle normal single file.
 		// max memory: 20^32 mb
-		logger.Debug(fmt.Printf("Starting to parse multi part form for request: %s", req.URL.Path))
+		logger.Debugf("Starting to parse multi part form for request: %s", req.URL.Path)
 		if err = req.ParseMultipartForm(32 << 20); nil != err {
 			status = http.StatusInternalServerError
 			logger.WithError(err).Error("Cannot get file from request - Multi part form parsing issue")
 			return
 		}
-		logger.Debug(fmt.Printf("Getting file headers from multi part from for request: %s", req.URL.Path))
+		logger.Debugf("Getting file headers from multi part from for request: %s", req.URL.Path)
 		var fullFilePath string
 		for _, fheaders := range req.MultipartForm.File {
 			for _, hdr := range fheaders {
@@ -95,7 +95,7 @@ func getUploadHandler(fsPath string) http.Handler {
 					return
 				}
 				fullFilePath = filepath.Join(fsPath, path, hdr.Filename)
-				logger.Debug(fmt.Printf("Handling the file %s for request %s", hdr.Filename, req.URL.Path))
+				logger.Debugf("Handling the file %s for request %s", hdr.Filename, req.URL.Path)
 				var outfile *os.File
 				if outfile, err = os.Create(fullFilePath); nil != err {
 					logger.WithError(err).Error("Error creating user file in file server")
@@ -182,7 +182,7 @@ func getDownloadHandler(fsPath string) http.Handler {
 			return
 		}
 		if info.IsDir() {
-			logger.Debug(fmt.Sprintf("Handling the download of the directory %s", info.Name()))
+			logger.Debugf("Handling the download of the directory %s", info.Name())
 			path = req.URL.String()
 			f := filepath.Join(os.TempDir(), commons.GenerateUniqueId())
 			fullPathToTar := fmt.Sprintf("%s.tar.gz", f)
@@ -200,10 +200,10 @@ func getDownloadHandler(fsPath string) http.Handler {
 				return
 			}
 			// put the compressed file into the response.
-			logger.Debug(fmt.Printf("Downloading the folder %s,",fullPathToTar))
+			logger.Debugf("Downloading the folder %s,",fullPathToTar)
 			http.ServeFile(res,req,fullPathToTar)
 		} else {
-			logger.Debug(fmt.Printf("Downloading the file %s,",path))
+			logger.Debugf("Downloading the file %s,",path)
 			http.ServeFile(res,req,path)
 		}
 	})
@@ -214,7 +214,7 @@ func getDeleteHandler(fsPath string) http.Handler {
 	return http.HandlerFunc(func (res http.ResponseWriter, req *http.Request) {
 		contentPath := req.URL.String()
 		path := filepath.Join(fsPath, contentPath)
-		logger.Debug(fmt.Printf("Deleting the content %s,", contentPath))
+		logger.Debugf("Deleting the content %s,", contentPath)
 		_, err := os.Stat(path)
 		if os.IsNotExist(err) {
 			writeStrErrResp(res, req, http.StatusNotFound, err.Error())
