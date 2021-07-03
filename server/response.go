@@ -18,6 +18,7 @@ func (e *Response) String() string {
 }
 
 func writeResponse(w http.ResponseWriter, r *http.Request, httpStatus int, response *Response) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
 	if _, err := w.Write([]byte(response.String())); err != nil {
 		logger.WithError(err).Errorf(logHttpErrFormat, r.URL.Path)
@@ -25,6 +26,7 @@ func writeResponse(w http.ResponseWriter, r *http.Request, httpStatus int, respo
 }
 
 func writeStrErrResp(w http.ResponseWriter, r *http.Request, httpStatus int, str string) {
+	w.Header().Set("Content-Type", "application/json")
 	err := fmt.Errorf(str)
 	logger.WithError(err).Errorf(logHttpErrFormat, r.URL.Path)
 	writeResponse(w, r, httpStatus, &Response{err.Error()})

@@ -7,7 +7,6 @@ import (
 
 func AuthenticationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		username, password, ok := req.BasicAuth()
 		if !ok {
 			logger.Error("failed fetching user and password from request")
