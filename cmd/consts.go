@@ -24,4 +24,6 @@ const (
 	flagFileServerPath    = "file-server-path"
 	flagPassword          = "password"
 	flagUser              = "user"
+	flagTlsCertFile			= "tls-cert-file"
+	flagTlsKeyFile			= "tls-key-file"
 )

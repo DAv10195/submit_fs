@@ -91,9 +91,19 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 			}
 			router := server.InitRouters(baseRouter, filesPath)
 			server.InitFolders()
-			fs := server.NewFileServer(router)
+			tlsConf, err := server.GetTlsConfig(viper.GetString(flagTlsCertFile), viper.GetString(flagTlsKeyFile))
+			if err != nil {
+				return err
+			}
+			fs := server.NewFileServer(router, tlsConf)
 			go func() {
-				if err := fs.ListenAndServe(); err != http.ErrServerClosed {
+				var serverErr error
+				if tlsConf != nil {
+					serverErr = fs.ListenAndServeTLS("", "")
+				} else {
+					serverErr = fs.ListenAndServe()
+				}
+				if serverErr != http.ErrServerClosed {
 					logger.WithError(err).Fatal("submit fs crashed")
 				}
 			}()
@@ -140,6 +150,8 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 	startCmd.Flags().String(flagFileServerPath, viper.GetString(flagFileServerPath), "directory to store the files of the server, starting from home")
 	startCmd.Flags().String(flagPassword, viper.GetString(flagPassword), "password")
 	startCmd.Flags().String(flagUser, viper.GetString(flagUser), "username")
+	startCmd.Flags().String(flagTlsCertFile, viper.GetString(flagTlsCertFile), "path to a file containing a certificate to use for tls")
+	startCmd.Flags().String(flagTlsKeyFile, viper.GetString(flagTlsKeyFile), "path to a file containing a key to use for tls")
 
 	if err := viper.ReadInConfig(); err != nil && !os.IsNotExist(err) {
 		setupErr = err

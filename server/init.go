@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -8,12 +9,13 @@ import (
 	"os"
 )
 
-func NewFileServer(router *mux.Router) *http.Server {
+func NewFileServer(router *mux.Router, tlsConf *tls.Config) *http.Server {
 	return &http.Server{
 		Addr: fmt.Sprintf(":%s", viper.GetString("file-server-port")),
 		Handler:      router,
 		WriteTimeout: serverTimeout,
 		ReadTimeout:  serverTimeout,
+		TLSConfig:    tlsConf,
 	}
 }
 
@@ -31,4 +33,15 @@ func InitFolders(){
 		logger.WithError(err)
 		return
 	}
+}
+
+func GetTlsConfig(certFilePath, keyFilePath string) (*tls.Config, error) {
+	if certFilePath != "" && keyFilePath != "" {
+		cert, err := tls.LoadX509KeyPair(certFilePath, keyFilePath)
+		if err != nil {
+			return nil, err
+		}
+		return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
+	}
+	return nil, nil
 }
