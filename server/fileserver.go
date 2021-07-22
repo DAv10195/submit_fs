@@ -193,7 +193,24 @@ func getDownloadHandler(fsPath string) http.Handler {
 				status = http.StatusInternalServerError
 				return
 			}
-			err = archive.Compress(filepath.Join(fsPath,path),logger, tarFile)
+			workDir, err := os.Getwd()
+			if err != nil {
+				logger.WithError(err).Error("Failed resolving working directory")
+				status = http.StatusInternalServerError
+				return
+			}
+			defer func() {
+				if err := os.Chdir(workDir); err != nil {
+					logger.WithError(err).Error("Failed changing working directory")
+				}
+			}()
+			dirName := filepath.Base(path)
+			if err := os.Chdir(strings.TrimSuffix(filepath.Join(fsPath, path), dirName)); err != nil {
+				logger.WithError(err).Error("Failed changing working directory")
+				status = http.StatusInternalServerError
+				return
+			}
+			err = archive.Compress(dirName, logger, tarFile)
 			if err != nil {
 				logger.WithError(err).Error("Failed to compress the folder")
 				status = http.StatusInternalServerError
