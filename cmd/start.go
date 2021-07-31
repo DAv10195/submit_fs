@@ -104,7 +104,7 @@ func newStartCommand(ctx context.Context, args []string) *cobra.Command {
 					serverErr = fs.ListenAndServe()
 				}
 				if serverErr != http.ErrServerClosed {
-					logger.WithError(err).Fatal("submit fs crashed")
+					logger.WithError(serverErr).Fatal("submit fs crashed")
 				}
 			}()
 			logger.Info("server is running")
